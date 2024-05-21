@@ -103,3 +103,11 @@ load data infile '/data/csv/t01.csv'
     lines terminated by '\n';
 
 ```
+
+#### 修改参数
+
+```mysql
+-- persist, 会保留在 数据目录/mysqld-auto.cnf
+set persist slow_query_log=on;
+set persist long_query_time=1;
+```
