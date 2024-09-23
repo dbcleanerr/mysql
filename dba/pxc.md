@@ -1,28 +1,3 @@
-<!-- TOC -->
-    * [`Percona XtraDB Cluster`](#percona-xtradb-cluster)
-      * [端口说明](#端口说明)
-      * [预处理](#预处理)
-      * [下载安装包](#下载安装包)
-      * [安装`Percona XtraDB Cluster`](#安装percona-xtradb-cluster)
-      * [更改参数，启动`pxc`](#更改参数启动pxc)
-      * [检查`Percona XtraDB Cluster`](#检查percona-xtradb-cluster)
-      * [卸载`Percona XtraDB Cluster`](#卸载percona-xtradb-cluster)
-      * [忘记密码](#忘记密码)
-    * [高可用](#高可用)
-      * [配置`clustercheck`](#配置clustercheck)
-      * [安装与配置`xinetd`](#安装与配置xinetd)
-      * [配置`haproxy`](#配置haproxy)
-        * [负载均衡算法](#负载均衡算法)
-        * [安装与配置`haproxy`](#安装与配置haproxy)
-        * [命令行操作`haproxy`](#命令行操作haproxy)
-        * [测试](#测试)
-      * [安装与配置`keepalived`](#安装与配置keepalived)
-    * [`sysbench`](#sysbench)
-      * [创建用户](#创建用户)
-      * [安装 `sysbench`](#安装-sysbench)
-      * [测试](#测试-1)
-<!-- TOC -->
-
 ### `Percona XtraDB Cluster`
 
 #### 端口说明
@@ -286,6 +261,58 @@ select *
   from performance_schema.pxc_cluster_view;
 
 ```
+
+#### `pxc`中的重要文件
+
+##### `grastate.dat`
+
+- `seqno`: 正常关闭时，其`seqno`值会被保存到`grastate.dat`文件中，以便在重启时使用。开户状态或者异常关闭时，`seqno`值为`-1`。
+- `safe_to_bootstrap`: 哪一个节点最后一个离开集群。最后一个值为`1`，否则为`0`。如果都异常关闭，要手机修改一台节点为`1`，存在丢失数据的风险。 
+
+```shell
+# 异常关闭时，取得seqno值
+[root@mysql-01 mysql]# kill -9 30530
+[root@mysql-01 mysql]# cat grastate.dat
+# GALERA saved state
+version: 2.1
+uuid:    6f413512-7660-11ef-9bc2-07fa6338f0fa
+seqno:   -1
+safe_to_bootstrap: 0
+     [root@mysql-01 mysql]# systemctl status mysql
+● mysql.service - Percona XtraDB Cluster
+   Loaded: loaded (/usr/lib/systemd/system/mysql.service; enabled; vendor preset: disabled)
+   Active: failed (Result: exit-code) since Mon 2024-09-23 18:10:05 CST; 17s ago
+  Process: 31374 ExecStopPost=/usr/bin/mysql-systemd stop-post (code=exited, status=3)
+  Process: 28804 ExecStop=/usr/bin/mysql-systemd stop (code=exited, status=0/SUCCESS)
+  Process: 31192 ExecStartPost=/usr/bin/mysql-systemd start-post $MAINPID (code=exited, status=0/SUCCESS)
+  Process: 31190 ExecStartPost=/bin/sh -c systemctl unset-environment _WSREP_START_POSITION (code=exited, status=0/SUCCESS)
+  Process: 30530 ExecStart=/usr/sbin/mysqld $_WSREP_START_POSITION (code=killed, signal=KILL)
+  Process: 30478 ExecStartPre=/bin/sh -c VAR=`bash /usr/bin/mysql-systemd galera-recovery`; [ $? -eq 0 ] && systemctl set-environment _WSREP_START_POSITION=$VAR || exit 1 (code=exited, status=0/SUCCESS)
+  Process: 30476 ExecStartPre=/bin/sh -c systemctl unset-environment _WSREP_START_POSITION (code=exited, status=0/SUCCESS)
+  Process: 30433 ExecStartPre=/usr/bin/mysql-systemd start-pre (code=exited, status=0/SUCCESS)
+ Main PID: 30530 (code=killed, signal=KILL)
+   Status: "Server is operational"
+
+# https://galeracluster.com/library/training/tutorials/restarting-cluster.html
+# 直接启动节点
+systemctl start mysql
+
+Log of wsrep recovery (--wsrep-recover):
+ INFO: WSREP: Running position recovery with --log_error='/data/mysql/wsrep_recovery_verbose.OY5IFO' --pid-file='/data/mysql/mysql-01-recover.pid'
+ INFO: WSREP: Recovered position 6f413512-7660-11ef-9bc2-07fa6338f0fa:4149363
+ 
+# 手动的取得seqno值
+# 从innodb表空间的状态中取得seqno值
+[root@mysql-01 mysql]# mysqld_safe --wsrep-recover
+2024-09-23T10:18:36.084178Z mysqld_safe Logging to '/data/mysql/log/mysqld.log'.
+2024-09-23T10:18:36.087235Z mysqld_safe Logging to '/data/mysql/log/mysqld.log'.
+2024-09-23T10:18:36.150919Z mysqld_safe Starting mysqld daemon with databases from /data/mysql
+2024-09-23T10:18:36.165499Z mysqld_safe WSREP: Running position recovery with --log_error='/data/mysql/wsrep_recovery.mgtwzI' --pid-file='/data/mysql/-recover.pid'
+2024-09-23T10:18:39.555801Z mysqld_safe WSREP: Recovered position 6f413512-7660-11ef-9bc2-07fa6338f0fa:4149365
+2024-09-23T10:18:43.104080Z mysqld_safe mysqld from pid file /var/run/mysqld/mysqld.pid ended
+```
+
+
 
 #### 卸载`Percona XtraDB Cluster`
 ```shell

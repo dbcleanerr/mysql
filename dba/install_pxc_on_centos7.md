@@ -815,29 +815,6 @@ where table_schema in ('intelligent_construction', 'scaffold', 'tb')
 
 ```mysql
 show open tables from mysql where in_use > 0;
-
-
-alter table users modify column username varchar(50) null;
-
-create index idx_username on users(username);
-
-
-SELECT table_name AS                                          `Table`,
-       round(((data_length) / 1024 / 1024), 2)                `table_size`,
-       round(((index_length) / 1024 / 1024), 2)               `index_size`,
-       round(((data_length + index_length) / 1024 / 1024), 2) `total_size`
-FROM information_schema.TABLES
-WHERE table_schema = 'intelligent_construction'
-group by table_name;
-
-
-select name,space_type,fs_block_size,file_size,autoextend_size,state from innodb_tablespaces ;
-
-    AND table_name = 'your_table_name';
-CopyInsert
-将 your_database_name 替换为你的数据库名称，将 your_table_name 替换为你的表名称。
-
-查看数据库大小
 ```
 
 
@@ -915,10 +892,6 @@ CopyInsert
 ddl_log_file=/var/lib/mysql/ddl_log.log
 ```
 
-
-```shell
-ls -l /dev/mapper
-```
 
 
 ```text
@@ -1079,19 +1052,6 @@ mysql> show status like 'wsrep_local_state_comment';
 
 
 https://zhuanlan.zhihu.com/p/679494969
-```
-
-
-```text
-
-innodb_flush_method=O_DIRECT
-set global foreign_key_checks=off;
-set global max_allowed_packet=671088640;
-```
-
-
-```shell
-select * from performance_schema.pxc_cluster_view;
 ```
 
 
@@ -1436,11 +1396,6 @@ OOMScoreAdjust=-1000
 2。OS会去执行一个oom kill的操作，他会根据一定的规则 ，一个评分规则 去kill指定的规则，就算把这个打的最低分，和操作系统最底层的服务一个级别，但他还是一直在申请 内存
 3。OS一直杀评分比他高的，但是他还在申请 ，就像池子放一样，放的水多，出的水少，不可能不溢出的。
 4。最终把OS自己的进程都杀光了， 就重启了。
-
-
-[root@mysql-04 ~]# pgrep mysqld
-1379
-[root@mysql-04 ~]# ps -T -p 1379
 
 
 
