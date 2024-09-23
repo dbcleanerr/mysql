@@ -29,6 +29,12 @@ systemctl enable mysqld
 systemctl start mysqld
 ```
 
+#### 安全安装
+
+```shell
+mysql_secure_installation
+```
+
 #### 修改临时密码
 
 ```shell
@@ -110,4 +116,16 @@ load data infile '/data/csv/t01.csv'
 -- persist, 会保留在 数据目录/mysqld-auto.cnf
 set persist slow_query_log=on;
 set persist long_query_time=1;
+```
+
+#### 忘记密码
+
+```mysql
+skip-grant-tables
+
+-- 重置密码
+flush privileges;
+alter user 'root'@'localhost' identified by 'Welcome!@#4';
+
+-- 重置密码
 ```

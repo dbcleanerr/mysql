@@ -1,0 +1,1 @@
+curl -fsSL https://www.percona.com/get/pmm | /bin/bash

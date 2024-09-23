@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:mysql://192.168.1.51:3306/db01</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="db01@192.168.1.45" uuid="60569b6a-7feb-42d4-98d7-4ad2ac241c08">
+      <driver-ref>mysql.8</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mysql://192.168.1.45:38809/db01</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
