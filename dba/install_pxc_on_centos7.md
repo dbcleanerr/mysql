@@ -158,6 +158,7 @@ mysql> show master status;
 ```text
 select name, space_type, file_size, allocated_size
   from information_schema.innodb_tablespaces
+ where name like  '%rn_project_worker_ext%'
  order by file_size;
  
 show table status from intelligent_construction;
@@ -188,26 +189,6 @@ show master status;
 alter table tt modify col01 tinyint;
 ```
 
-
-
-### Install Percona XtraDB Cluster on CentOS 7
-
-
-
-
-
-
-
-#### 创建用户，数据库
-
-```mysql
--- 重命名root
-rename user 'root'@'localhost' to 'ics_admin'@'localhost';
-
--- 创建业务用户
-
--- 创建数据库
-```
 
 
 
@@ -318,64 +299,10 @@ pt-diskstats --interval=1 --iterations=10 --devices-regex=sda --show-timestamps
 pt-diskstats --group-by sample --devices-regex sda --columns-regex io_s
 
 # 分析慢查询日志
-pt-query-digest --since=12h /var/log/mysql_slow.log
+pt-query-digest --since=12h /data/mysql/log/slow.log
 ```
 
 
-```shell
-
-```
-
-
-```text
-在Percona XtraDB Cluster (PXC) 中，systemctl start mysql@bootstrap.service 和 systemctl start mysqld 的区别主要在于启动方式和目的。
-
-systemctl start mysql@bootstrap.service:
-
-这个命令用于启动一个特殊的MySQL实例，通常用于集群的初始化或引导（bootstrap）过程。
-当你启动一个PXC节点时，使用mysql@bootstrap.service可以确保该节点以引导模式启动，这意味着它会创建一个新的集群或作为集群的第一个节点启动。
-引导模式会执行一些特殊的初始化步骤，例如创建必要的系统表、配置集群等。
-这个命令通常在第一次启动PXC节点或需要重新初始化集群时使用。
-systemctl start mysqld:
-
-这个命令用于启动一个普通的MySQL实例，不涉及特殊的引导过程。
-当你启动一个PXC节点时，使用mysqld服务会以普通模式启动，这意味着它会尝试加入一个已经存在的集群，而不是创建一个新的集群。
-这个命令通常在节点已经初始化并且只需要正常启动时使用。
-总结来说，mysql@bootstrap.service 用于初始化或引导一个新的PXC集群，而 mysqld 用于启动一个已经初始化过的PXC节点并加入现有集群。
-```
-
-
-#### 同步方式
-
-- SST: State Snapshot Transfer，全量同步，`XtraBackup`和`mysqldump`和`rsync`，推荐`XtraBackup`
-- IST: Incremental State Transfer，增量同步，只有`XtraBackup`
-
-```mysql
-show status like 'wsrep_local_state_comment';
-```
-
-
-
-```mysql
-SELECT 
-    table_name AS `Table`, 
-    round(((data_length + index_length) / 1024 / 1024), 2) `Size in MB` 
-FROM 
-    information_schema.TABLES 
-WHERE 
-    table_schema = 'db01' 
-    AND table_name = 'sbtest1';
-
-```
-
-
-```mysql
--- 更改密码
-
-```
-
-
-/var/lib/mysql//innobackup.backup.log
 
 
 ```text
@@ -637,14 +564,6 @@ gvwstate.dat 文件也位于PXC节点的数据目录中，用于记录当前的P
 view_id: 记录当前Primary Component的视图ID，包括UUID、视图编号和节点ID。
 primary: 一个布尔值，指示当前节点是否属于Primary Component。
 members: 记录当前Primary Component中的成员列表，包括每个成员的UUID和地址。
-```
-
-
-#### 新增节点
-
-```shell
-装软件，启库，停库，改配置，启库
-
 ```
 
 ```shell
@@ -1055,21 +974,6 @@ https://zhuanlan.zhihu.com/p/679494969
 ```
 
 
-
-```text
-[root@mysql-02 etc]# cat /var/lib/mysql/grastate.dat
-# GALERA saved state
-version: 2.1
-uuid:    b097fc61-69d8-11ef-beef-b71208f38786
-seqno:   -1
-safe_to_bootstrap: 0
-```
-
-- `version`：表示`Galera`集群的版本号。
-- `uuid`：表示`Galera`集群的唯一标识符。
-- `seqno`：表示`Galera`集群中最后一次提交的事务序列号。运行中，正常关闭`Galera`集群时，`seqno`的值为`-1`。
-- `safe_to_bootstrap`：表示`Galera`集群是否可以安全引导。集群最后一个关闭的为`1`，其它为`0`。
-
 ```shell
 awk 'NR>=175436 && NR<242348' b.sql > b1.sql
 awk 'NR>=19091 && NR<99482' b.sql > b2.sql
@@ -1120,17 +1024,6 @@ select * from user where host like '10.50.%.%';
 
 ALTER USER 'ics_api'@'%' IDENTIFIED WITH mysql_native_password BY 'your_password';
 ```
-
-
-```shell
-# 查看进程号
-pgrep mysqld
-
-# 查看线程数
-cat /proc/27293/status | grep -i threads
-```
-
-
 
 
 
@@ -1496,4 +1389,307 @@ CREATE USER 'u01'@'%' IDENTIFIED BY 'welcome';
 grant execute on procedure create_t01 to 'u01'@'%';
 grant SHOW_ROUTINE on *.* to 'u01'@'%';
 FLUSH PRIVILEGES;
+```
+
+
+
+```mysql
+(ics_admin@localhost) [intelligent_construction]> select count(*) from ics_device_down;
++----------+
+| count(*) |
++----------+
+|  1082840 |
++----------+
+1 row in set (0.68 sec)
+
+             
+(ics_admin@localhost) [intelligent_construction]> select count(*) from rn_project_worker_ext;
++----------+
+| count(*) |
++----------+
+|  1976343 |
++----------+
+1 row in set (0.20 sec)
+
+
+UPDATE `ics_device_down` AS m  ignore index(idx_update)
+    INNER JOIN `rn_project_worker_ext` AS t  ignore index(PRIMARY) ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+
+UPDATE `ics_device_down` AS m
+    INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+explain
+select count(*)
+  from ics_device_down a ignore index(idx_update)
+  join rn_project_worker_ext b ignore index(PRIMARY) on a.primary_id = b.id
+  where a.sync_time < b.modified_on;
+
+
+select count(*)
+from ics_device_down a
+         join rn_project_worker_ext b on a.primary_id = b.id
+where a.sync_time < b.modified_on;
+
+
+select count(*)
+from ics_device_down a
+         join rn_project_worker_ext b on a.primary_id = b.id
+where a.sync_time < b.modified_on;
+
+-- ics_device_down_config : 2716
+-- rn_project_worker_ext : 1976343
+-- ics_device_down : 1083020
+INSERT INTO `ics_device_down` (id,project_id,device_id,data_model,primary_id,sync_time,created_on)
+    SELECT UUID(),iddc.project_id,iddc.device_id,iddc.data_model,t.`id`, IFNULL(t.`modified_on`, NOW()), NOW()
+    FROM `ics_device_down_config` AS iddc
+             INNER JOIN `rn_project_worker_ext` t ON t.project_id=iddc.project_id
+             LEFT JOIN `ics_device_down` AS m ON m.`device_id`=iddc.device_id AND m.`data_model`=iddc.data_model AND m.`primary_id`=t.`id`
+    WHERE t.`Is_Deleted`=0
+      AND t.`status`=1
+      AND iddc.`Is_Deleted`=0
+      AND iddc.data_model='project_worker'
+      AND m.`id` IS NULL
+    LIMIT 1000\G
+
+
+select /*+ use_hash(iddc, m) */ * 
+ from ics_device_down_config iddc
+ join rn_project_worker_ext t ON t.project_id=iddc.project_id
+ where t.`Is_Deleted`=0
+      AND t.`status`=1
+      AND iddc.`Is_Deleted`=0
+      AND iddc.data_model='project_worker'
+;
+
+select count(*)
+from ics_device_down_config iddc
+         join rn_project_worker_ext t ON concat(t.project_id, '') = concat(iddc.project_id, '')
+where t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker'
+;
+
+
+
+select count(*)
+from ics_device_down_config iddc
+         join rn_project_worker_ext t ON concat(iddc.project_id, '') = concat(t.project_id, '') 
+where t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker'
+;
+
+
+select count(*)
+from ics_device_down_config iddc
+         join rn_project_worker_ext t ON concat(t.project_id, '') = concat(iddc.project_id, '')
+         LEFT JOIN `ics_device_down` AS m ignore index(uni_device_id_data_model_primary_id) ON concat(m.`device_id`,'')=concat(iddc.device_id,'') 
+                                        AND concat(m.`data_model`,'')=concat(iddc.data_model,'') 
+                                        AND concat(m.`primary_id`,'')=concat(t.`id`,'')
+where t.`Is_Deleted` = 0
+  AND t.`status` = 1
+  AND iddc.`Is_Deleted` = 0
+  AND iddc.data_model = 'project_worker'
+  AND m.`id` IS NULL;
+
+select count(*)
+FROM `ics_device_down_config` AS iddc
+         INNER JOIN `rn_project_worker_ext` t ON t.project_id=iddc.project_id
+         LEFT JOIN `ics_device_down` AS m ON m.`device_id`=iddc.device_id AND m.`data_model`=iddc.data_model AND m.`primary_id`=t.`id`
+WHERE t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker'
+  AND m.`id` IS NULL;
+
+
+select count(*)
+FROM `ics_device_down_config` AS iddc
+         INNER JOIN `rn_project_worker_ext` t ignore index (idx_project_id_worker_id) ON t.project_id=iddc.project_id
+         LEFT JOIN `ics_device_down` AS m ignore index (uni_device_id_data_model_primary_id,idx_update,idx_query) ON m.`device_id`=iddc.device_id AND m.`data_model`=iddc.data_model AND m.`primary_id`=t.`id`
+WHERE t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker'
+  AND m.`id` IS NULL;
+
+
+select count(*)
+FROM `ics_device_down_config` AS iddc ignore index (uni_project_id_device_id_data_model)
+         INNER JOIN `rn_project_worker_ext` t ignore index (idx_project_id_worker_id) ON t.project_id=iddc.project_id
+WHERE t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker';
+
+INSERT IGNORE INTO `ics_device_down` (id,project_id,device_id,data_model,primary_id,sync_time,created_on)
+SELECT UUID(),iddc.project_id,iddc.device_id,iddc.data_model,t.`id`, IFNULL(t.`modified_on`, NOW()), NOW()
+FROM `ics_device_down_config` AS iddc 
+         INNER JOIN `rn_project_worker_ext` t  ON t.project_id=iddc.project_id
+WHERE t.`Is_Deleted`=0
+  AND t.`status`=1
+  AND iddc.`Is_Deleted`=0
+  AND iddc.data_model='project_worker';
+
+
+explain
+
+SELECT m.*
+FROM `ics_device_down` AS m
+         INNER JOIN `rn_project_worker_ext` AS t ON t.`id` = m.`primary_id`
+WHERE m.sync_time < t.modified_on
+    FOR UPDATE;
+
+UPDATE `ics_device_down` AS m
+    INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+explain
+UPDATE `ics_device_down` AS m  ignore index(idx_update)
+    INNER JOIN `rn_project_worker_ext` AS t  ignore index(PRIMARY) ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,
+    m.`status`=0,
+    m.`msg`='',
+    m.`Execute_Count`=0,
+    m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+
+set global innodb_print_all_deadlocks=on;
+
+set global innodb_status_output_locks=on;
+
+show variables like 'innodb_%output%';
+
+
+pt-deadlock-logger h=localhost,u=ics_admin,p=welcome,S=/data/mysql/mysql.sock,P=38809,A=utf8
+
+ics_device_down
+
+
+
+INSERT INTO `ics_device_down` (id, project_id, device_id, data_model, primary_id, sync_time, created_on)
+SELECT UUID(),
+       iddc.project_id,
+       iddc.device_id,
+       iddc.data_model,
+       t.`id`,
+       IFNULL(t.`modified_on`, NOW()),
+       NOW()
+FROM `ics_device_down_config` AS iddc
+         INNER JOIN `rn_project_worker_ext` t ON t.project_id = iddc.project_id
+         LEFT JOIN `ics_device_down` AS m ON m.`device_id` = iddc.device_id AND m.`data_model` = iddc.data_model AND m.`primary_id` = t.`id`
+WHERE t.`Is_Deleted` = 0
+  AND t.`status` = 1
+  AND iddc.`Is_Deleted` = 0
+  AND iddc.data_model = 'project_worker'
+  AND m.`id` IS NULL
+LIMIT 1000
+
+UPDATE `ics_device_down` AS m ignore index(idx_update)
+    INNER JOIN `rn_project_worker_ext` AS t ignore index(PRIMARY) ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+
+UPDATE `ics_device_down` AS m ignore index(idx_update)
+    INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on;
+
+这个是更新ics_device_down所有sync_time小于rn_project_worker_ext.modified_on的记录。
+
+是不是和rn_project_worker_ext表的记录有变化时，根据ics_device_down.primary_id条件更新逻辑是一样的？
+
+
+SELECT
+    TABLE_NAME,
+    COLUMN_NAME,
+    CONSTRAINT_NAME,
+    REFERENCED_TABLE_NAME,
+    REFERENCED_COLUMN_NAME
+FROM
+    information_schema.KEY_COLUMN_USAGE
+WHERE
+    TABLE_SCHEMA = 'intelligent_construction'
+  AND REFERENCED_TABLE_NAME = 'ics_device_down';
+
+select * from information_schema.innodb_trx \G
+
+-- 
+select * from performance_schema.data_locks \G
+
+select * from performance_schema.metadata_locks \G
+
+select * from sys.metrics where variable_name like 'innodb_row_lock%' 
+or variable_name like 'Table_locks%' 
+or type = 'InnoDB Metrics - lock';
+-- 
+
+```
+
+
+#### `lock`
+
+```mysql
+-- ##################################  冲突引起的 deadlock #########################################
+-- session 1
+mysql> begin;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> insert into t01 values(6,'a');
+Query OK, 1 row affected (0.00 sec)
+
+mysql> commit;
+ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction
+                                                            
+-- session 2
+mysql> insert into t01 values(6,'a');
+Query OK, 1 row affected (0.00 sec)
+
+mysql> commit;
+Query OK, 0 rows affected (0.00 sec)
+
+
+-- ##################################  没有索引的行锁 ##############################
+mysql> begin;
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> select * from t01;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 | a     |
+|     2 | b     |
+|     3 | c     |
++-------+-------+
+3 rows in set (0.00 sec)
+
+mysql> select * from t01 where col02='a' for update;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 | a     |
++-------+-------+
+1 row in set (0.00 sec)
+
+mysql> select thread_id,object_schema,object_name,lock_type,lock_mode,lock_status,lock_data from performance_schema.data_locks;
++-----------+---------------+-------------+-----------+-----------+-------------+------------------------+
+| thread_id | object_schema | object_name | lock_type | lock_mode | lock_status | lock_data              |
++-----------+---------------+-------------+-----------+-----------+-------------+------------------------+
+|     15781 | db01          | t01         | TABLE     | IX        | GRANTED     | NULL                   |
+|     15781 | db01          | t01         | RECORD    | X         | GRANTED     | supremum pseudo-record |
+|     15781 | db01          | t01         | RECORD    | X         | GRANTED     | 1                      |
+|     15781 | db01          | t01         | RECORD    | X         | GRANTED     | 2                      |
+|     15781 | db01          | t01         | RECORD    | X         | GRANTED     | 3                      |
++-----------+---------------+-------------+-----------+-----------+-------------+------------------------+
+5 rows in set (0.00 sec)
 ```

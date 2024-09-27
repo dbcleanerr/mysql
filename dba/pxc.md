@@ -239,6 +239,17 @@ mysqlx_wait_timeout=300        # MYSQLX协议等待超时
 systemctl start mysql@bootstrap.service
 ```
 
+#### `mysql`中修改参数
+
+```mysql
+-- 只修改选项值，重启后生效 (mysqld-auto.cnf)
+SET PERSIST_ONLY innodb_buffer_pool_size = 4294967296;
+
+-- 都修改
+SET PERSIST innodb_buffer_pool_size = 4294967296;
+
+```
+
 #### 检查`Percona XtraDB Cluster`
 
 ```mysql
@@ -247,7 +258,7 @@ systemctl start mysql@bootstrap.service
 -- wsrep_connected: 集群连接状态
 -- wsrep_ready: 集群是否准备好
 -- wsrep_last_committed: 最后提交的事务ID
--- wsrep_local_cached_downto: 本地缓存(gcache)的事务ID，这个变量可以用来判断是用IST还是SST。如果此值为0，表示gcache没有数据。
+-- wsrep_local_cached_downto: 当前gcache中缓存的最小事务ID
 show status where Variable_name in ('wsrep_cluster_size',
                                     'wsrep_cluster_status',
                                     'wsrep_connected',
@@ -262,7 +273,7 @@ select *
 
 ```
 
-#### `pxc`中的重要文件
+#### `pxc`中的重要知识点
 
 ##### `grastate.dat`
 
@@ -312,7 +323,75 @@ Log of wsrep recovery (--wsrep-recover):
 2024-09-23T10:18:43.104080Z mysqld_safe mysqld from pid file /var/run/mysqld/mysqld.pid ended
 ```
 
+#### `wsrep_local_cached_downto`
 
+> 该值表示当前节点的`gcache`中缓存的最小事务ID。
+
+```text
+-- 正常节点的 wsrep_local_cached_downto > 待恢复结点的 grastate.dat 的 seqno  (发送者最小的事务id都比接收者的事务id大，没办法增量了) 
+-- 异常关闭的节点的 grastate.dat 的 seqno = -1，做 recovery，或者启动的时候自己会从innodb表空间的状态中取得seqno值。
+
+
+-- wsrep_local_cached_downto: 最小能同步的事务ID(被同步节点)
+-- wsrep_last_committed: 同步的最后一个事务ID(被同步节点)
+-- grastate.dat 的 seqno : 当前的事务ID(同步节点)
+-- wsrep_last_committed - wsrep_local_cached_downto = 能名同步的最大事务数量
+-- wsrep_last_committed - grastate.dat 的 seqno = 需要同步的事务数量
+
+-- 正常节点
+mysql> show global status like 'wsrep_local_cached_downto';
++---------------------------+----------+
+| Variable_name             | Value    |
++---------------------------+----------+
+| wsrep_local_cached_downto | 12872206 |
++---------------------------+----------+
+1 row in set (0.00 sec)
+
+mysql> show global status like 'wsrep_last_committed';
++----------------------+----------+
+| Variable_name        | Value    |
++----------------------+----------+
+| wsrep_last_committed | 12880272 |
++----------------------+----------+
+1 row in set (0.00 sec)
+             
+-- 关闭的节点
+[root@mysql-02 mysql]# cat grastate.dat
+# GALERA saved state
+version: 2.1
+uuid:    6f413512-7660-11ef-9bc2-07fa6338f0fa
+seqno:   12880268
+safe_to_bootstrap: 0
+             
+12872206 < 12880268  ------>>> 可以走IST
+
+2024-09-27T18:09:52.916033+08:00 1 [Note] [MY-000000] [Galera] State transfer required:
+        Group state: 6f413512-7660-11ef-9bc2-07fa6338f0fa:12880272
+        Local state: 6f413512-7660-11ef-9bc2-07fa6338f0fa:12880268
+        
+2024-09-27T18:09:53.698046+08:00 1 [Note] [MY-000000] [Galera] ####### IST uuid:6f413512-7660-11ef-9bc2-07fa6338f0fa f: 12880269, l: 12880272, STRv: 3
+2024-09-27T18:09:53.698335+08:00 1 [Note] [MY-000000] [Galera] IST receiver addr using tcp://192.168.1.46:24568
+2024-09-27T18:09:53.698781+08:00 1 [Note] [MY-000000] [Galera] Prepared IST receiver for 12880269-12880272, listening at: tcp://192.168.1.46:24568
+2024-09-27T18:09:53.831937+08:00 0 [Note] [MY-000000] [Galera] Member 1.0 (pxc-cluster-node-2) requested state transfer from '*any*'. Selected 0.0 (pxc-cluster-node-1)(SYNCED) as donor.
+2024-09-27T18:09:53.832027+08:00 0 [Note] [MY-000000] [Galera] Shifting PRIMARY -> JOINER (TO: 12880272)
+2024-09-27T18:09:53.832184+08:00 1 [Note] [MY-000000] [Galera] Requesting state transfer: success, donor: 0
+2024-09-27T18:09:55.302933+08:00 0 [Note] [MY-000000] [WSREP-SST] xtrabackup_ist received from donor: Running IST
+2024-09-27T18:09:55.303016+08:00 0 [Note] [MY-000000] [WSREP-SST] Running post-processing...........
+2024-09-27T18:09:55.307358+08:00 0 [Note] [MY-000000] [WSREP-SST] Skipping mysql_upgrade (ist)
+2024-09-27T18:09:55.307391+08:00 0 [Note] [MY-000000] [WSREP-SST] ...........post-processing done
+2024-09-27T18:09:55.308706+08:00 0 [Note] [MY-000000] [WSREP-SST] Galera co-ords from recovery: 6f413512-7660-11ef-9bc2-07fa6338f0fa:12880268 
+
+```
+
+#### `gcache.page_size`和`gcache.size`
+
+> 这二个参数对于恢复来说至关重要，如果需要恢复的事务都在这二个文件里，那么会走`IST`，否则会走`SST`。
+
+- 设置方法: `wsrep_provider_options="gcache.page_size=4M;gcache.size=4M"`
+- gcache.page_size: 对应文件 `galera.cache`
+- gcache.size: 对应内存 `galera.cache`
+- 当在做`SST`时，`gcache.page`会保留多个，因为在做`SST`时，源库要保留增量。
+- 正常情况下，gcache.page会在创建新文件时，会自动删除旧文件，所以不会占用过多的空间。
 
 #### 卸载`Percona XtraDB Cluster`
 ```shell
@@ -343,6 +422,18 @@ flush privileges;
 alter user 'root'@'localhost' identified by 'welcome';
 flush privileges;
 ```
+
+#### `mysql`中的日志
+
+![img_4.png](img_4.png)
+
+- `binlog` : 二进制日志，记录所有对数据库的修改操作，主要用于数据库复制和数据恢复。
+- `error` : 错误日志，记录数据库运行过程中的错误信息。
+- `general` : 通用日志，记录连接建立和执行的SQL语句。
+- `slow_query` : 慢查询日志，记录执行时间超过`long_query_time`的SQL语句。
+- `relay log` : 中继日志，为主从同步服务，只存在于从服务器上，
+- `redo log` : 记录数据变更后的信息，主要用于数据恢复。
+- `undo log` ： 记录数据变更前的信息，主要用于事务回滚，同时也用于多版本并发控制。
 
 ### 高可用
 
@@ -672,8 +763,8 @@ systemctl start keepalived
 
 ```mysql
 show plugins;
-create user 'sbuser'@'192.168.%.%' identified with mysql_native_password by'sbpass';
 -- create user 'sbuser'@'192.168.%.%' identified by'sbpass';
+create user 'sbuser'@'192.168.%.%' identified with mysql_native_password by'sbpass';
 grant all on *.* to'sbuser'@'192.168.%.%';
 flush privileges;
 

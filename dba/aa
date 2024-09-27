@@ -1,0 +1,119 @@
+TRANSACTION 2444758861, ACTIVE 0 sec starting index read
+mysql tables in use 1, locked 1
+LOCK WAIT
+MySQL thread id 16, OS thread handle 140143846516480, query id 378644216 Applying batch of row changes (update)
+TRANSACTION 2444758182, ACTIVE 8 sec starting index read
+mysql tables in use 2, locked 2
+, undo log entries 9
+MySQL thread id 4906215, OS thread handle 140141788972800, query id 378641167 10.50.78.108 ics_job executing
+UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+2024-09-25T22:35:36.205400+08:00 16 [Note] [MY-000000] [WSREP] --------- CONFLICT DETECTED --------
+2024-09-25T22:35:36.205432+08:00 16 [Note] [MY-000000] [WSREP] cluster conflict due to high priority abort for threads:
+
+2024-09-25T22:35:36.205446+08:00 16 [Note] [MY-000000] [WSREP] Winning thread:
+   THD: 16, mode: high priority, state: exec, conflict: executing, seqno: 2064800848
+   SQL: (null)
+
+2024-09-25T22:35:36.205458+08:00 16 [Note] [MY-000000] [WSREP] Victim thread:
+   THD: 4906215, mode: local, state: exec, conflict: executing, seqno: -1
+   SQL: UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+
+TRANSACTION 2444759241, ACTIVE 0 sec starting index read
+mysql tables in use 1, locked 1
+LOCK WAIT
+MySQL thread id 15, OS thread handle 140143847573248, query id 378645373 Applying batch of row changes (update)
+TRANSACTION 2444758863, ACTIVE 5 sec fetching rows
+mysql tables in use 2, locked 2
+, undo log entries 9
+MySQL thread id 4906215, OS thread handle 140141788972800, query id 378644223 10.50.78.108 ics_job executing
+UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+2024-09-25T22:35:41.301300+08:00 15 [Note] [MY-000000] [WSREP] --------- CONFLICT DETECTED --------
+2024-09-25T22:35:41.301329+08:00 15 [Note] [MY-000000] [WSREP] cluster conflict due to high priority abort for threads:
+
+2024-09-25T22:35:41.301360+08:00 15 [Note] [MY-000000] [WSREP] Winning thread:
+   THD: 15, mode: high priority, state: exec, conflict: executing, seqno: 2064801136
+   SQL: (null)
+
+2024-09-25T22:35:41.301373+08:00 15 [Note] [MY-000000] [WSREP] Victim thread:
+   THD: 4906215, mode: local, state: exec, conflict: executing, seqno: -1
+   SQL: UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+
+TRANSACTION 2444761965, ACTIVE 0 sec starting index read
+mysql tables in use 1, locked 1
+LOCK WAIT
+MySQL thread id 12, OS thread handle 140143849686784, query id 378657503 Applying batch of row changes (update)
+TRANSACTION 2444761918, ACTIVE 1 sec starting index read
+mysql tables in use 2, locked 2
+MySQL thread id 4906215, OS thread handle 140141788972800, query id 378657081 10.50.78.108 ics_job executing
+UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+2024-09-25T22:36:26.863903+08:00 12 [Note] [MY-000000] [WSREP] --------- CONFLICT DETECTED --------
+2024-09-25T22:36:26.863936+08:00 12 [Note] [MY-000000] [WSREP] cluster conflict due to high priority abort for threads:
+
+2024-09-25T22:36:26.863950+08:00 12 [Note] [MY-000000] [WSREP] Winning thread:
+   THD: 12, mode: high priority, state: exec, conflict: executing, seqno: 2064803159
+   SQL: (null)
+
+2024-09-25T22:36:26.863962+08:00 12 [Note] [MY-000000] [WSREP] Victim thread:
+   THD: 4906215, mode: local, state: exec, conflict: executing, seqno: -1
+   SQL: UPDATE `ics_device_down` AS m
+INNER JOIN `rn_project_worker_ext` AS t ON t.`id`=m.`primary_id`
+SET m.sync_time=t.modified_on,m.`status`=0,m.`msg`='',m.`Execute_Count`=0,m.modified_on=t.modified_on
+WHERE m.sync_time < t.modified_on
+
+
+
+
+1. 建议先把Slb改为一个节点，看下是否还有问题，如果没有问题，先保证生产应用。
+2. 建一个测试环境（新建一个测试库），把所有相关的表用到的SQL，执行频率，提供下。能模拟一个一样的场景。
+3. 看起来ics_device_down这个表 insert,delete,update都是和其它表join完成的。
+4. 从日志来看争用在 index uni_device_id_data_model_primary_id of table `intelligent_construction`.`ics_device_down` trx id 2438513166 lock_mode X    -- 行锁(X)，uni_device_id_data_model_primary_id这个索引
+------------------------
+LATEST DETECTED DEADLOCK
+------------------------
+2024-09-26 01:00:04 140038660404992
+*** (1) TRANSACTION:
+TRANSACTION 2438513166, ACTIVE 2 sec starting index read
+mysql tables in use 2, locked 2               -- 当前sql打开的表以及锁定的表
+LOCK WAIT 5935 lock struct(s), heap size 680056, 27598 row lock(s)   -- 27598行锁
+MySQL thread id 4868558, OS thread handle 140035547191040, query id 396064657 10.50.78.108 ics_job executing
+DELETE idd
+FROM `ics_device_down` AS idd
+INNER JOIN `ics_device_down_config` iddc ON iddc.project_id=idd.project_id AND iddc.device_id=idd.`device_id` AND iddc.data_model=idd.`data_model`
+WHERE iddc.is_deleted=1
+*** (1) HOLDS THE LOCK(S):
+RECORD LOCKS space id 7179 page no 20387 n bits 136 index uni_device_id_data_model_primary_id of table `intelligent_construction`.`ics_device_down` trx id 2438513166 lock_mode X    -- 行锁(X)，uni_device_id_data_model_primary_id这个索引
+*** (1) WAITING FOR THIS LOCK TO BE GRANTED:
+RECORD LOCKS space id 7179 page no 32207 n bits 192 index uni_device_id_data_model_primary_id of table `intelligent_construction`.`ics_device_down` trx id 2438513166 lock_mode X waiting
+Record lock, heap no 46 PHYSICAL RECORD: n_fields 4; compact format; info bits 0
+*** (2) TRANSACTION:
+TRANSACTION 421526478622584, ACTIVE 4 sec starting index read
+mysql tables in use 4, locked 4
+LOCK WAIT 76620 lock struct(s), heap size 8102008, 488891 row lock(s)
+MySQL thread id 4850232, OS thread handle 140035449886464, query id 396061457 10.50.78.108 ics_job executing
+INSERT INTO `ics_device_down` (id,project_id,device_id,data_model,primary_id,sync_time,created_on)
+SELECT UUID(),iddc.project_id,iddc.device_id,iddc.data_model,t.`id`, IFNULL(t.`modified_on`, NOW()), NOW()
+FROM `ics_device_down_config` AS iddc
+INNER JOIN `rn_project_worker_ext` t ON t.project_id=iddc.project_id
+LEFT JOIN `ics_device_down` AS m ON m.`device_id`=iddc.device_id AND m.`data_model`=iddc.data_model AND m.`primary_id`=t.`id`
+WHERE t.`Is_Deleted`=0 AND t.`status`=1 AND iddc.`Is_Deleted`=0 AND iddc.data_model='project_worker' AND m.`id` IS NULL
+LIMIT 1000
+*** (2) HOLDS THE LOCK(S):
+RECORD LOCKS space id 7179 page no 32207 n bits 192 index uni_device_id_data_model_primary_id of table `intelligent_construction`.`ics_device_down` trx id 421526478622584 lock mode S locks rec but not gap
+*** (2) WAITING FOR THIS LOCK TO BE GRANTED:
+RECORD LOCKS space id 7179 page no 20387 n bits 136 index uni_device_id_data_model_primary_id of table `intelligent_construction`.`ics_device_down` trx id 421526478622584 lock mode S locks rec but not gap waiting
+
